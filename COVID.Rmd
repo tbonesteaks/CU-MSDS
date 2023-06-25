@@ -19,7 +19,9 @@ This report will;
   4. Determine which countries lost the highest percentage of people to COVID (deaths/population).
   5. Compare total cases & death rate in the US to global leaders.
   6. Visualize the deaths and cases in the US.
-  7. Model the loss of life without a vaccine.
+  7. Determine which model is more indicative of Deaths.
+    * Control Model: Population and Case Counts
+    * Challenge Model: Population and Landmass Area 
 
 # Bias Statement:
 
@@ -200,16 +202,55 @@ glob %>% filter(Country.Region =="US") %>%
   theme_minimal()
 
 ```
-{r usd}
-dus$UID <- NULL
-dus$iso2 <- NULL
-dus$code3 <- NULL
-dus$FIPS <- NULL
-head(dus)
+# Number 7: Can we predict deaths related to COVID with Population Density or Population
+  
+These models use World Bank landmass data available here:  https://data.worldbank.org/indicator/AG.LND.TOTL.K2?view=map
 
-#dus %>% pivot_longer(cols=-c(Combined_Key),names_to = date) # %>% mutate(dat = date) %>% mutate(dat=mdy(dat))
+These linear regression models are looking for statistical significant factors in COVID19 deaths. As a control model we will first regress population and cases. In the challenge model we will regress land mass and population (aka population density). The goals are to ensure the control model is correct, investigate the validity of the second, and prove which is statistically more signifiant.
+```{r usd, echo=FALSE}
+#Landmass data downloaded from the WorldBank here: https://data.worldbank.org/indicator/AG.LND.TOTL.K2?view=map
+#Cleaning required...
+landmass <- data.frame(Country.Region = c("Aruba","Africa Eastern and Southern","Afghanistan","Africa Western and Central","Angola","Albania","Andorra","Arab World","United Arab Emirates","Argentina","Armenia","American Samoa","Antigua and Barbuda","Australia","Austria","Azerbaijan","Burundi","Belgium","Benin","Burkina Faso","Bangladesh","Bulgaria","Bahrain","Bahamas","Bosnia and Herzegovina","Belarus","Belize","Bermuda","Bolivia","Brazil","Barbados","Brunei Darussalam","Bhutan","Botswana","Central African Republic","Canada","Central Europe and the Baltics","Switzerland","Channel Islands","Chile","China","Coted'Ivoire","Cameroon","DRC","Congo","Colombia","Comoros","Cabo Verde","Costa Rica","Caribbean small states","Cuba","Curacao","Cayman Islands","Cyprus","Czechia","Germany","Djibouti","Dominica","Denmark","Dominican Republic","Algeria","East Asia & Pacific (excluding high income)","Early-demographic dividend","East Asia & Pacific","Europe & Central Asia (excluding high income)","Europe & Central Asia","Ecuador","Egypt","Euro area","Eritrea","Spain","Estonia","Ethiopia","European Union","Fragile and conflict affected situations","Finland","Fiji","France","Faroe Islands","Micronesia","Gabon","United Kingdom","Georgia","Ghana","Gibraltar","Guinea","Gambia","Guinea-Bissau","Equatorial Guinea","Greece","Grenada","Greenland","Guatemala","Guam","Guyana","High income","Hong Kong","Honduras","Heavily indebted poor countries (HIPC)","Croatia","Haiti","Hungary","IBRD only","IDA & IBRD total","IDA total","IDA blend","Indonesia","IDA only","Isle of Man","India","Not classified","Ireland","Iran","Iraq","Iceland","Israel","Italy","Jamaica","Jordan","Japan","Kazakhstan","Kenya","Kyrgyz Republic","Cambodia","Kiribati","St. Kitts and Nevis","South Korea","Kuwait","Latin America & Caribbean (excluding high income)","Lao PDR","Lebanon","Liberia","Libya","St. Lucia","Latin America & Caribbean","Least developed countries: UN classification","Low income","Liechtenstein","Sri Lanka","Lower middle income","Low & middle income","Lesotho","Late-demographic dividend","Lithuania","Luxembourg","Latvia","Macao","St. Martin (French part)","Morocco","Monaco","Moldova","Madagascar","Maldives","Middle East & North Africa","Mexico","Marshall Islands","Middle income","North Macedonia","Mali","Malta","Myanmar","Middle East & North Africa (excluding high income)","Montenegro","Mongolia","Northern Mariana Islands","Mozambique","Mauritania","Mauritius","Malawi","Malaysia","North America","Namibia","New Caledonia","Niger","Nigeria","Nicaragua","Netherlands","Norway","Nepal","Nauru","New Zealand","OECD members","Oman","Other small states","Pakistan","Panama","Peru","Philippines","Palau","Papua New Guinea","Poland","Pre-demographic dividend","Puerto Rico","North Korea","Portugal","Paraguay","West Bank and Gaza","Pacific island small states","Post-demographic dividend","French Polynesia","Qatar","Romania","Russian Federation","Rwanda","South Asia","Saudi Arabia","Sudan","Senegal","Singapore","Solomon Islands","Sierra Leone","El Salvador","San Marino","Somalia","Serbia","Sub-Saharan Africa (excluding high income)","South Sudan","Sub-Saharan Africa","Small states","Sao Tome and Principe","Suriname","Slovak Republic","Slovenia","Sweden","Eswatini","Sint Maarten (Dutch part)","Seychelles","Syrian Arab Republic","Turks and Caicos Islands","Chad","East Asia & Pacific (IDA & IBRD countries)","Europe & Central Asia (IDA & IBRD countries)","Togo","Thailand","Tajikistan","Turkmenistan","Latin America & the Caribbean (IDA & IBRD countries)","Timor-Leste","Middle East & North Africa (IDA & IBRD countries)","Tonga","South Asia (IDA & IBRD)","Sub-Saharan Africa (IDA & IBRD countries)","Trinidad and Tobago","Tunisia","Turkiye","Tuvalu","Tanzania","Uganda","Ukraine","Upper middle income","Uruguay","United States","Uzbekistan","St. Vincent and the Grenadines","Venezuela","British Virgin Islands","Virgin Islands (U.S.)","Vietnam","Vanuatu","World","Samoa","Kosovo","Yemen","South Africa","Zambia","Zimbabwe"),
+                       landmass = c(180,14845123.09,652230,9045773,1246700,27400,470,13100549,71020,2736690,28470,200,440,7692020,82520,82646,25680,30280,112760,273600,130170,108560,785,10010,51200,202980,22810,54,1083300,8358140,430,5270,38140,566730,622980,8965590,1105004.93,39516.03,0,743532,9424702.9,318000,472710,2267050,341500,1109500,1861,4030,51060,404850,103800,444,240,9240,77198.53,349390,23180,750,40000,48310,2381741,16023227.7,33310653.27,24505909.6,22396530.6,27443748.82,248360,995450,2679977.105,121040.829,499556.645,42750,1128571.265,3996449.167,20452531.09,303940,18270,547557,1366,700,257670,241930,69490,227533,10,245720,10120,28120,28050,128900,340,410450,107160,540,196850,35245959.12,1050,111890,19394766.09,55960,27560,91260,71067763.3,96094649.4,25026886.09,4384620,1877519,20642266.09,570,2973190,0,68890,1622500,434128,100830,21640,295717,10830,88794,364500,2699700,569140,191800,176520,810,260,97600,17820,18136660,230800,10230,96320,1759540,610,20038980,20398133.09,15734412.09,160,61860,24841039.8,93851817.4,30360,44561482.3,62620,2574.46,62230,32.9,50,446300,2.027,32884.6,581800,300,11217108,1943950,180,78117405.3,25220,1220190,320,652670,8634843,13450,1557506.803,460,786380,1030700,2030,94280,328550,18113064,823290,18280,1266700,910770,120340,33670,364285,143350,20,263310,35508602.2,309500,2031566,770880,74180,1280000,298170,460,452860,306130,20308679.83,8870,120410,91605.6,397300,6020,64150,31345271.1,3471,11490,230080,16376870,24670,4770120,2149690,1868000,192530,718,27990,72180,20720,60,627340,87460,23890436.09,631930,23890896.09,2500566,960,156000,48080,20136.4,407283.532,17200,34,460,183630,950,1259200,15902637.7,22988700.6,54390,510890,138790,469930,19913472,14870,8628823,720,4770120,23890896.09,5130,155360,769630,30,885800,200520,579400,53276365.5,175020,9147420,440650,390,882050,150,350,313429,12190,129979826.5,2780,0,527970,1213090,743390,386850))
+# dim(landmass)
 
+#build dataframe
+ppglob <- pglob %>% inner_join(landmass)
+ppglob <- ppglob %>% select(-c(Province.State)) %>% mutate(popdense = Population/landmass, dep1k = deaths*1000/Population) %>%
+   group_by(Country.Region) %>% reframe( 
+                                               Population=max(Population),
+                                               landmass=max(landmass),
+                                               popdense=max(popdense),
+                                               dep1k = max(dep1k),
+                                               cases = max(cases),
+                                               deaths = max(deaths))%>%
+  filter(popdense<Inf)
+head(ppglob)
+summary(ppglob) 
 
+cat("Populatino & Cases Model")    
+ppglobm1 <-  lm(deaths ~ Population + cases , data=ppglob) 
+summary(ppglobm1)
+ 
+cat("Population & Landmass Model")
+ppglobm2 <-  lm(deaths ~ Population + landmass   , data=ppglob) 
+summary(ppglobm2)
+ 
+
+```
+## Answer to Number 7: Of the two models, population and case counts are far more statistically significant in predicting deaths than population density. The P-value for this regression is exceedingly low, 10^-15. However the model's F-statistic is over 150.
+
+## Interestingly, Population and Landmass are a statistically significant means of predicting COVID19 deaths. The P-Values are well under a 1% alpha for each coefficient, and the model aas a whole enjoys a P-Value under 6.2 * 10^-14. These results are far more accurate than chance. The F-Statistic roughly 1/5 the size of the first model may mean this model is easier to explain as well.
+
+# Conclusion:
+
+This notebook illustrates and challenges the COVID-19 data in the global dataset offered by John Hopkins University. We confirmed that, based on this data, the United States did indeed have the highest number of recorded cases of COVID, North Korea had the highest Death Rate (deaths/cases), and Peru lost the largest percentage of it's population to the disease. The United States Death Rate and Population Percentage Lost to COVID are far lower than the global leaders. 
+
+Visual representations of the US data confirm graphically how effective the vaccine was at curbing infections in early 2021. All graphic representations of US infections show an abrupt decrease in the slope coinciding with the January 2021 vaccine roll-out. There is also an increase in slope coinciding with the re-opening of schools in late 2021 and early 2022.
+
+As a challenge this notebook models deaths two ways to visualize statistical significance of aggregate factors. Model1 regresses deaths against population and cases for a highly significant model. Model 2 regresses deaths against population and landmass, proving that population density does indeed serve as a statistically significant proxy for deaths associated with COVID19. 
+
+As noted above, in the bias statement, there is high probability that these data are incomplete due to a multitude of factors. I suggest confirming all conclusions.
 ```{r sess}
 #print(sessionInfo())
 ```
