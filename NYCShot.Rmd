@@ -1,0 +1,201 @@
+---
+title: "Data-Assignment#2"
+author: "TG"
+date: "2023-06-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+```
+Copyright (c) 2023, Todd Gardiner
+All rights reserved. This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree. 
+
+# Overview:
+
+This report looks at the New York Shooting dataset from the City of New York. 
+We will try to discern these 4 things in the data;
+
+1. What percentage of shootings are murders across the city?
+2. If we can see clusters of high incidence of shootings per day? 
+3. Which borough has the highest number of shootings?
+4. if the borough with the highest number of shootings has a time of day that is most dangerous (elevated murders count)
+
+First, we read in the dataset and drop unneccesary columns.
+
+```{r shots}
+# Run Once to download file to local folder (so you can reload into this system as needed and not DDOS Data.gov)
+download.file("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD", "./NYCShotdata.csv", quiet = FALSE, mode = "w")
+
+# Load local file
+nycshot <- read.csv("NYCShotdata.csv")
+
+# Cursory look at the data columns
+colnames(nycshot)
+# Remove Some Columns
+nycshot[,11:21] <- NULL
+nycshot[,7:9] <- NULL
+nycshot[,5] <- NULL
+
+# View results
+colnames(nycshot)
+```
+ 
+ Next, we alter columns from <chr> to date and time, boolean to integer (0,1), and factor the boroughs.
+```{r include=TRUE} 
+# Alter date to date datatype
+nycshot$OCCUR_DATE <-  mdy(nycshot$OCCUR_DATE)
+nycshot$OCCUR_DATE2 <-  ymd(nycshot$OCCUR_DATE)
+nycshot$OCCUR_TIME <- hms(nycshot$OCCUR_TIME)  
+# Factor Precinct, Boro,  
+nycshot$PRECINCT <- as.factor(nycshot$PRECINCT)
+nycshot$BORO <- as.factor(nycshot$BORO)
+
+# Integer Murder Field (0,1)
+nycshot$STATISTICAL_MURDER_FLAG <- as.integer(as.logical(nycshot$STATISTICAL_MURDER_FLAG))
+```
+
+With data cleansing complete, let's summarize the data.
+
+```{r include=TRUE} 
+#view results 
+summary(nycshot)
+```
+Answer to #1:
+The summary data show that roughly 1/5 reports (19.28%) have the murder flag.
+
+We have no NAs of consequence. But will drop Precinct data as unncecessary.
+The mean time for a report is 12:41pm.
+
+Let's look at those murders by day and see if there are any clusters of shootings:
+```{r include=TRUE}
+#Drop PRECINCT 
+nycshot["PRECINCT"] <- NULL
+
+#Collect dates with murders
+undates <- unique(nycshot["OCCUR_DATE2"][nycshot["STATISTICAL_MURDER_FLAG"]==1])
+#Count all dates in dataset
+undatesno <- unique(nycshot$OCCUR_DATE2)
+#Compare
+cat("Dates w Murders",length(undates),"\nTotal Dates in Dataset:",length(undatesno), "\nPercentage of Dates in Dataset with a Murder:",(length(undates)/length(undatesno))*100,"%\n \n So, let's scatterplot the dates with a murder.")
+
+#Count up the Murders per day for each day 
+undatetotals <- rep(0,length(undates))
+for (i in 1:length(undates)){
+ undatetotals[i] <- sum(nycshot$STATISTICAL_MURDER_FLAG[nycshot$OCCUR_DATE2==undates[i]])
+}
+head(undatetotals)
+
+#ensure variables are of same length
+length(undates) == length(undatetotals)
+
+#plot the results
+plot(as_datetime(undates),undatetotals,main = "Murders by Day" , ylab = "Murders on that Day", xlab="Dates", cex=.2)
+ 
+```
+Well, that plot is a mess. However, the small dots do show that a multiple murder day (more than 2 murders) is less likely than 1-2 murders per day. The 2 murder per day line is nearly solid. The 1 murder per day line is solid.
+
+This scatter plot also shows that there is a single period of time with 9 & 8 murders/day in close proximity (2 dots close together). These seem to be rare based on cursory view of the data. 7 murders/day in close proximity has happened twice. Again an outlier, but seemingly the edge of a transition in the data. 
+
+The middle of the plot shows the transition area between these two groups. Days with 3-6 murders do cluster, but not with any regularity or pattern.
+
+Maybe if we look at the total number of Murders by Borough that will be more descriptive.
+
+```{r include=TRUE}
+#Count the Boroughs
+boroct <- unique(nycshot["BORO"][nycshot["STATISTICAL_MURDER_FLAG"]==1])
+head(boroct) 
+#Count the Murders for each Borough
+borototals <- rep(0,length(boroct))
+for (i in 1:length(boroct)){
+ borototals[i] <- sum(nycshot$STATISTICAL_MURDER_FLAG[nycshot$BORO==boroct[i]])
+}
+#manually check those totals by looking at the first sum (Queens)
+head(borototals)
+sum(nycshot$STATISTICAL_MURDER_FLAG[nycshot$BORO=="QUEENS"])
+#that checks out - moving on
+#ensure variables are of the same length
+length(boroct) == length(borototals)
+
+#plot the results
+barplot( borototals,names.arg = str_trunc(boroct, 6, side =  "right"), main = "Murders by Borough" , ylab = "Total Murders  "  , las=3)
+cat("Legend",boroct,"\n")
+```
+
+Here, we can easily see which bourough has the most murders (Brooklyn), and relative difference to other boroughs in the city (1st by a large margin). Again, we'd need statistical confidence intervals to conclude these data are significant. We'd also need to compare these data to population numbers to get a per/capita statistic and remove bias.
+
+I wonder if we can tell which hours of the day have the most murders in Brooklyn.
+This would be nice to see if we wanted to go shopping in Brooklyn or a party.
+Let's rebuild a dataframe with only Brooklyn data, add an hour column, and run a linear regression.
+
+```{r}
+#new dataframe of brooklyn only data
+brookl <- nycshot %>% filter(BORO =="BROOKLYN") %>% select(OCCUR_TIME, BORO , STATISTICAL_MURDER_FLAG)
+brookl$hr2m <- hour(brookl$OCCUR_TIME)
+head(brookl)    
+
+# run the regression Murder Flag regressed across factor(hour)
+dangertimes <- lm(STATISTICAL_MURDER_FLAG ~ factor(hr2m) , data=brookl)
+summary(dangertimes)
+
+print("All coefficients by hour (descending rank):")
+sort(dangertimes$coefficients)
+print("* Midnight, hour 00:00, has a default coefficient of 0. \n \n")
+
+print("Visual Representation:")
+plot(1:24,dangertimes$coefficients[2:25] , main = "Hour of Day vs Likelihood of Shooting Linear Regression",xlab="Hour Of Day" , ylab = "Murder Coefficient", type="l")
+```
+Again we are left with inconclusive data, but a pattern in the data has emerged.
+These data suggest that 16:00-17:00 (4-5pm) is the safest hour of the day, but the following hour, 17:00-18:00 (5pm-6pm) is the 9th most dangerous. These data do suggest that being in Brooklyn from 5-8am is the most dangerous time to be in Brooklyn. More so than anything betwen Noon and 4am the following day. I'm not convinced as these data don't coincide with what we found above, the average time of a report is 12:41 contradicting that claim. More research is necessary. 
+
+Before we conclude, let's see if controlling these data for monthly time effects (factor(month)) helps to clarify some patterns in the data. We will again build a dataframe of Brooklyn specific data, and then run a regression with both hour and month time effect controls.
+
+```{r}
+#rebuild dataframe of brooklyn only data with month
+brookl <- nycshot %>% filter(BORO =="BROOKLYN") %>% select(OCCUR_TIME, OCCUR_DATE, BORO , STATISTICAL_MURDER_FLAG)
+brookl$hr2m <- hour(brookl$OCCUR_TIME)
+brookl$mo2m <- month(brookl$OCCUR_DATE)
+head(brookl)    
+
+# run the regression Murder Flag regressed across factor(hour) and factor(month)
+dangertimes <- lm(STATISTICAL_MURDER_FLAG ~ factor(hr2m) + factor(mo2m), data=brookl)
+summary(dangertimes)
+
+print("Coefficients by hour (descending rank):")
+hoursofday <- sort(dangertimes$coefficients[2:24])
+hoursofday
+print("* The Midnight Hour, 00:00, has a baseline of zero. \n \n")
+
+print("Visual Representation:")
+plot(1:23,dangertimes$coefficients[2:24] , main = "Hour of Day vs Likelihood of Shooting Linear Regression",xlab="Hour Of Day" , ylab = "Murder Coefficient", type="l")
+
+print("All coefficients by Month (descending rank):")
+monthsofday <- sort(dangertimes$coefficients[25:35])
+monthsofday
+print("* January, month #1, has a baseline of zero. \n \n")
+
+print("Visual Representation:")
+plot(1:12,c(0,dangertimes$coefficients[25:35]) , main = "Month of Year vs Likelihood of Shooting Linear Regression",xlab="Month Of Year" , ylab = "Murder Coefficient", type="l")
+```
+
+
+We again have the same pattern in the hourly data. The safest time to be in Brooklyn in 16:00, or 4pm. This is a statistically significant result with an alpha of .001. On the other hand, 5 am to 8 am is a pretty deadly time to be in the Borough. The 5am hour has 10% alpha on the coefficient and correspondingly low P-Value. The months are not as statistically significant, no month has a significant P-Value. Additionally, controlling for the differences between the months did not make the time coefficients much more accurate. 
+
+### Conclusion: 
+
+Our first inquiry into the data was to see what percentage of shooting were murders? Cursory analysis showed about 1/5.
+
+Our next inquiry was to see if there were clusters of murders inside the data. There were only 2 occurences with 8 or 9 murders per day in close proximity. But the first plot shows that there is a consistent rate of 1-2 murders per day (illustrated by solid and almost solid lines respectively). The area in between is a transition area of data.
+
+With a simple bar plot we then showed that Brooklyn has the most murders in the NYCShooting Database. 
+This information seems conclusive but requires T Testing the sums for a confidence interval.
+
+Finally, we looked at the most dangerous times to be in Brooklyn with a regression model.
+There seems to be a well defined pattern for murder times based on this data. We found that the 16:00 hour is the safest in the Borough with and without controlling the regression model for monthly time effects (factor(month)).
+Again, we would need to establish confidence intervals to determine if the data is statistically significant, but the safest hour had an alpha of .01 or 1% which is significant.
+
+These data may well be biased: 
+I wonder if these data are indicitive of reporting times (recorded by the police) and not the actual time of the event.
