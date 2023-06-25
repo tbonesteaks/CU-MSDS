@@ -1,0 +1,215 @@
+---
+title: "COVID"
+author: "TG"
+date: "2023-06-25"
+output: pdf_document
+---
+Copyright (c) 2023, Todd Gardiner
+All rights reserved. This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree. 
+
+# Overview:
+
+This file is to see what happened during COVID, both on a Global Level, and in the US. 
+This report will;
+
+  1. Download data from Johns Hopkins University dataset on Github.
+  2. Determine which countries had the most deaths due to COVID (total deaths).
+  3. Determine which countries had the highest death rates (deaths/cases).
+  4. Determine which countries lost the highest percentage of people to COVID (deaths/population).
+  5. Compare total cases & death rate in the US to global leaders.
+  6. Visualize the deaths and cases in the US.
+  7. Model the loss of life without a vaccine.
+
+# Bias Statement:
+
+* Before we begin, a note about bias. This data is dependent upon reporting accuracy during a pandemic. Obviously, in a triage situation, reporting is not the highest priority activity. Also, countries  without death certificate systems don't report at all. Some countries report sporadically. Some country data is from news coverage. The veracity of the data is inversely proportional to the independence of the legal system and modernity in each country studied. For more granular data understanding please visit the data source here: https://github.com/CSSEGISandData/COVID-19
+
+# Load Libraries
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(psych)
+library(ggplot2)
+options(scipen=999)
+options(warn = -1)
+```
+
+# Load in the data files. Create data frames.
+ 
+```{r start}
+rurl <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
+files <- c("time_series_covid19_confirmed_US.csv",
+           "time_series_covid19_confirmed_global.csv",
+           "time_series_covid19_deaths_US.csv",
+           "time_series_covid19_deaths_global.csv",
+           "time_series_covid19_recovered_global.csv")
+files2 <- str_c(rurl,files)
+files2
+dfset <- rep(NA,5)
+
+#conusa<- read.csv(files2[1])
+conglobal<- read.csv(files2[2])
+#dus<- read.csv(files2[3])
+dglob<- read.csv(files2[4])
+#recglob <- read.csv(files2[5])
+popstuff <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/UID_ISO_FIPS_LookUp_Table.csv")
+```
+
+# Tidy the two Global dataframes (global cases & deaths)
+
+``` {r dfs}
+coglob <- conglobal %>% 
+  pivot_longer(cols= -c('Province.State','Country.Region','Lat','Long'),
+               names_to = 'date',
+               values_to='cases')%>%
+  select(-c(Lat,Long)) 
+coglob <- coglob %>% mutate("dat" = date) %>% 
+  select(-c(date))  %>% 
+  mutate(across('dat',str_replace, 'X',''))  %>% 
+  mutate(dat = mdy(dat))
+
+head(coglob) 
+
+deglob <- dglob%>% 
+  pivot_longer(cols=-c('Province.State','Country.Region','Lat','Long'),
+               names_to='date', 
+               values_to = 'deaths')%>%
+  select(-c(Lat,Long))
+deglob <- deglob %>% mutate('dat' = date) %>%
+  select(-c(date))%>%
+  mutate(across('dat',str_replace, 'X','')) %>%
+  mutate(dat = mdy(dat))
+#deglob[15:40,1:4]
+```
+
+# Join the Global data frames into a bigger glob df
+
+
+```{r join}
+glob <- coglob %>% full_join(deglob)
+head(glob)
+```
+
+# Summarize and Describe dataframe, then manually inspect...
+
+```{r summs}
+describe(glob)
+cat("Good: no NAs. \n")
+summary(glob)
+cat("Good: 2 char fields, 1 date field, 2 numeric fields. \n Remove rows with 0 cases.")
+glob <- glob %>% filter(cases >0 ) 
+head(glob)
+summary(glob)
+cat("See max of 100M cases, inspect those...\n")
+glob %>% filter(cases>100000000 & Country.Region == "US")
+cat("Seems legit, moving on.")
+```
+
+# 2: Calculate Total Deaths in Each Country (Total cases of COVID-19)
+
+```{r totdeaths}
+deathstot <- glob %>% select(c(deaths,Country.Region)) %>% group_by(Country.Region) %>% summarize(maxd =max(deaths)) %>% arrange(desc(maxd))
+head(deathstot)
+
+barplot(deathstot$maxd[10:1],horiz=TRUE,names.arg=deathstot$Country.Region[10:1],col="RED",main="Total Deaths by Country", las=2, cex.names=.5)
+ 
+```
+## ANSWER TO NUMBER 2: US had the most deaths due to COVID*
+
+# 3: Calculate Worst Deaths Rates Across the globe (deaths/cases)
+
+```{r deathrates}
+deathrate <- glob %>% select(c(deaths,cases,Country.Region)) %>% group_by(Country.Region) %>% summarize(maxdr =max(deaths)/max(cases))  %>% arrange(desc(maxdr))
+head(deathrate)
+
+
+barplot(deathrate$maxdr[10:1],horiz=TRUE,names.arg=deathrate$Country.Region[10:1],col="Dark Red",main=" Death Rate by Country", las=2, cex.names=.5)
+ 
+
+```
+## ANSWER TO NUMBER 3: According to this data, North Korea had the highest death rate among cases.*
+*** This is what the data shows, although I find the output to be less than believable.
+
+# 4: Calculate Highest Percentage of Population Lost (deaths/population)
+
+```{r poploss}
+popstuff <- popstuff %>% mutate(Country.Region = Combined_Key) %>% select(-c(UID:Long_))
+pglob <- glob %>% inner_join(popstuff)
+poploss <- pglob %>% select(c(deaths,Population,Country.Region)) %>% group_by(Country.Region) %>% summarize(popdr =max(deaths)/max(Population))  %>% arrange(desc(popdr))
+head(poploss)
+
+barplot(poploss$popdr[10:1],horiz=TRUE,names.arg=poploss$Country.Region[10:1],col="LightGoldenrod4",main="Population Loss by Country", las=2, cex.names=.5)
+ 
+
+```
+
+## ANSWER TO NUMBER 4: Peru had the highest percentage loss of population due to COVID*
+
+# 5: Calculate Comparable United States Rates:
+```{r usrates, echo=FALSE}
+
+cat("Maximum Case Count in US:",max(glob$cases[glob$Country.Region=="US"]))
+cat("Total Dead in US:",max(glob$deaths[glob$Country.Region=="US"]), "** World Leader")
+cat("Death Rate (deaths/cases * 100) :", max(glob$deaths[glob$Country.Region=="US"])/max(glob$cases[glob$Country.Region=="US"])*100,"% Compared to North Korea at 600% * \n")
+cat("Population Loss Percentage (deaths/Population * 100 ) :", max(pglob$deaths[pglob$Country.Region=="US"])/max(pglob$Population[pglob$Country.Region=="US"])*100,"% Compared to Peru at .67% \n")
+```
+
+# Preliminary Plot USA Cases and Deaths
+
+```{r plot1}
+
+plot(glob$dat[glob$Country.Region == "US" ], glob$cases[glob$Country.Region == "US" & glob$cases > 0], main = "USA Cases", xlab="Date", ylab="Case Count",ylim=c(0,120000000),col="NavyBlue")
+
+plot(glob$dat[glob$Country.Region == "US" ], glob$deaths[glob$Country.Region == "US" & glob$cases > 0], main = "USA Deaths", xlab="Date", ylab="Body Count",ylim=c(0,1200000),col="Red" , )
+
+```
+
+## Plot US Cases vs Deaths Together
+
+```{r plot2}
+glob %>% filter(Country.Region =="US") %>% 
+  select(c( dat,cases,deaths)) %>% 
+  gather(key = "Variable", value = "value", -dat) %>% 
+    ggplot(aes(x=dat,y=value)) + 
+  #geom_line(aes(color='Variable'),size=1) +
+   geom_line(aes(color = Variable, fill = Variable), 
+            alpha = 0.5, ) +
+    scale_color_manual(values = c("#000099", "#c30000")) +
+  labs(title="US COVID-19 Cases and Deaths", x="Date", y="Incidence")+
+  theme_minimal()
+
+```
+
+# Plot with Log (Y Axis) Scale
+
+```{r plotlog}
+glob %>% filter(Country.Region =="US") %>% 
+  select(c( dat,cases,deaths)) %>% 
+  gather(key = "Variable", value = "value", -dat) %>% filter(value>0) %>%
+    ggplot(aes(x=dat,y=value)) + 
+  #geom_line(aes(color='Variable'),size=1) +
+   geom_line(aes(color = Variable, fill = Variable), 
+            alpha = 0.5, ) +
+    scale_color_manual(values = c("#000099", "#c30000")) +
+  scale_y_log10()+
+  labs(title="US COVID-19 Cases and Deaths, Log Scaled", x="Date", y="Incidence")+
+  theme_minimal()
+
+```
+{r usd}
+dus$UID <- NULL
+dus$iso2 <- NULL
+dus$code3 <- NULL
+dus$FIPS <- NULL
+head(dus)
+
+#dus %>% pivot_longer(cols=-c(Combined_Key),names_to = date) # %>% mutate(dat = date) %>% mutate(dat=mdy(dat))
+
+
+```{r sess}
+#print(sessionInfo())
+```
