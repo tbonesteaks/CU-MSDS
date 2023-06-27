@@ -228,7 +228,7 @@ ppglob <- ppglob %>% select(-c(Province.State)) %>% mutate(popdense = Population
 head(ppglob)
 summary(ppglob) 
 
-cat("Populatino & Cases Model")    
+cat("Population & Cases Model")    
 ppglobm1 <-  lm(deaths ~ Population + cases , data=ppglob) 
 summary(ppglobm1)
  
@@ -243,14 +243,14 @@ summary(ppglobm2)
 ## Interestingly, Population and Landmass are a statistically significant means of predicting COVID19 deaths. The P-Values are well under a 1% alpha for each coefficient, and the model aas a whole enjoys a P-Value under 6.2 * 10^-14. These results are far more accurate than chance. The F-Statistic roughly 1/5 the size of the first model may mean this model is easier to explain as well.
 
 # Conclusion:
-
 This notebook illustrates and challenges the COVID-19 data in the global dataset offered by John Hopkins University. We confirmed that, based on this data, the United States did indeed have the highest number of recorded cases of COVID, North Korea had the highest Death Rate (deaths/cases), and Peru lost the largest percentage of it's population to the disease. The United States Death Rate and Population Percentage Lost to COVID are far lower than the global leaders. 
 
-Visual representations of the US data confirm graphically how effective the vaccine was at curbing infections in early 2021. All graphic representations of US infections show an abrupt decrease in the slope coinciding with the January 2021 vaccine roll-out. There is also an increase in slope coinciding with the re-opening of schools in late 2021 and early 2022.
+Visual representations of the US data confirm graphically how effective the vaccine was at curbing infections in early 2021. All graphic representations of US infections show an abrupt decrease in the slope coinciding with the January 2021 vaccine roll-out. There is an increase in Infections, steepening slope, coinciding with the re-opening of schools in late 2021 and early 2022. However, the slope of associated Deaths in the USA remained basically unchanged. Pointing to an effective vaccine roll-out.
 
 As a challenge this notebook models deaths two ways to visualize statistical significance of aggregate factors. Model1 regresses deaths against population and cases for a highly significant model. Model 2 regresses deaths against population and landmass, proving that population density does indeed serve as a statistically significant proxy for deaths associated with COVID19. 
 
 As noted above, in the bias statement, there is high probability that these data are incomplete due to a multitude of factors. I suggest confirming all conclusions.
+
 ```{r sess}
 #print(sessionInfo())
 ```
