@@ -16,6 +16,7 @@ Compares murders to shootings in aggregate, sums murders by borough, and models 
  <a href="https://github.com/tbonesteaks/CU-MSDS/blob/main/NYCShot.Rmd">Page</a> - 
  <a href="https://raw.githubusercontent.com/tbonesteaks/CU-MSDS/main/NYCShot.Rmd" >Code</a>
 <br><br>
+<a href="https://github.com/tbonesteaks/CU-MSDS/blob/main/altair2.ipynb">Interactive Graphics Python Notebook (Altair)</a><br><br>
 <hr>
 <h2>Graphics and Best Practices:</h2>
 
